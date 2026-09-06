@@ -1,0 +1,77 @@
+[package]
+name = "iced_split"
+version = "0.2.0-dev"
+edition = "2024"
+description = "resizeable splits for iced"
+repository = "https://github.com/A-Disruption/iced_split"
+# Fork of edwloef/iced_split, ported to the iced master branch.
+license = "MIT"
+keywords = ["gui", "widget", "iced", "iced-rs"]
+categories = ["gui"]
+
+[dependencies]
+# Depends on `iced` rather than `iced_core` directly so that a consumer's
+# `[patch.crates-io] iced = ...` reaches this crate too. Depending on
+# `iced_core` by version left it resolving separately, which put two
+# `iced_core`s in the graph and made this widget's `Element` a different type
+# from the application's.
+iced = { version = "0.15.0-dev", features = ["advanced"] }
+
+[lints.rust]
+missing_copy_implementations = "warn"
+missing_debug_implementations = "warn"
+rust_2018_idioms = "warn"
+unused_crate_dependencies = "warn"
+unused_qualifications = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+float_cmp = "allow"
+too_many_lines = "allow"
+too_many_arguments = "allow"
+type_complexity = "allow"
+
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+
+nursery = { level = "warn", priority = -1 }
+missing_const_for_fn = "allow"
+
+allow_attributes = "warn"
+empty_enum_variants_with_brackets = "warn"
+empty_structs_with_brackets = "warn"
+get_unwrap = "warn"
+if_then_some_else_none = "warn"
+lossy_float_literal = "warn"
+pub_without_shorthand = "warn"
+redundant_type_annotations = "warn"
+ref_patterns = "warn"
+renamed_function_params = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+same_name_method = "warn"
+semicolon_inside_block = "warn"
+separated_literal_suffix = "warn"
+str_to_string = "warn"
+string_lit_chars_any = "warn"
+try_err = "warn"
+unused_trait_names = "warn"
+
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+
+multiple_unsafe_ops_per_block = "deny"
+undocumented_unsafe_blocks = "deny"
+
+# `iced` is asked for by version above and pointed at a source here, so every
+# crate in the graph asking for `iced 0.15.0-dev` resolves to one checkout —
+# which is what keeps `Element` and `Theme` one type across all of them.
+# 0.15 is unreleased, so this block is not optional: cargo cannot resolve
+# `iced 0.15.0-dev` from crates.io without it. Cargo only honours `[patch]` in
+# the manifest of the workspace being built, so a consumer needs its own copy.
+[patch.crates-io]
+iced = { git = "https://github.com/iced-rs/iced.git", branch = "master" }
