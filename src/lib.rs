@@ -9,7 +9,7 @@ use iced_core::{
     Animation, Color, Element, Event, Layout, Length, Point, Rectangle, Shell, Size,
     Vector, Widget,
     border::{self, Radius},
-    layout::{Limits, Node},
+    layout::Limits,
     mouse::{self, Click, Cursor, Interaction, click::Kind},
     overlay,
     renderer::{self, Quad},
@@ -412,8 +412,8 @@ where
         tree.diff_children(&mut self.children);
     }
 
-    fn layout(&mut self, tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
-        let max_limits = limits.max();
+    fn layout(&mut self, tree: &mut Tree, renderer: &Renderer, limits: &Limits) {
+        let max_limits = limits.bounds();
 
         let (cross_direction, layout_direction) =
             self.direction.select(max_limits.width, max_limits.height);
@@ -429,24 +429,24 @@ where
         let (offset_width, offset_height) =
             self.direction.select(0.0, start_layout + self.handle_width);
 
-        let children = vec![
-            self.children[0]
-                .as_widget_mut()
-                .layout(&mut tree.children[0], renderer, &start_limits),
-            self.children[1]
-                .as_widget_mut()
-                .layout(&mut tree.children[1], renderer, &end_limits)
-                .translate(Vector::new(offset_width, offset_height)),
-        ];
+        self.children[0]
+            .as_widget_mut()
+            .layout(&mut tree.children[0], renderer, &start_limits);
+        tree.children[0].translation = Vector::ZERO;
 
-        Node::with_children(max_limits, children)
+        self.children[1]
+            .as_widget_mut()
+            .layout(&mut tree.children[1], renderer, &end_limits);
+        tree.children[1].translation = Vector::new(offset_width, offset_height);
+
+        tree.size = max_limits;
     }
 
     fn update(
         &mut self,
         tree: &mut Tree,
         event: &Event,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: Cursor,
         renderer: &Renderer,
         shell: &mut Shell<'_, Message>,
@@ -454,9 +454,8 @@ where
     ) {
         self.children
             .iter_mut()
-            .zip(&mut tree.children)
-            .zip(layout.children())
-            .for_each(|((child, tree), layout)| {
+            .zip(layout.iter_mut(&mut tree.children))
+            .for_each(|(child, (layout, tree))| {
                 child.as_widget_mut().update(
                     tree, event, layout, cursor, renderer, shell, viewport,
                 );
@@ -573,15 +572,14 @@ where
         renderer: &mut Renderer,
         theme: &Theme,
         style: &renderer::Style,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: Cursor,
         viewport: &Rectangle,
     ) {
         self.children
             .iter()
-            .zip(&tree.children)
-            .zip(layout.children())
-            .for_each(|((child, tree), layout)| {
+            .zip(layout.iter(&tree.children))
+            .for_each(|(child, (layout, tree))| {
                 child
                     .as_widget()
                     .draw(tree, renderer, theme, style, layout, cursor, viewport);
@@ -651,7 +649,7 @@ where
     fn mouse_interaction(
         &self,
         tree: &Tree,
-        layout: Layout<'_>,
+        layout: Layout,
         cursor: Cursor,
         viewport: &Rectangle,
         renderer: &Renderer,
@@ -666,9 +664,8 @@ where
         } else {
             self.children
                 .iter()
-                .zip(&tree.children)
-                .zip(layout.children())
-                .map(|((child, tree), layout)| {
+                .zip(layout.iter(&tree.children))
+                .map(|(child, (layout, tree))| {
                     child
                         .as_widget()
                         .mouse_interaction(tree, layout, cursor, viewport, renderer)
@@ -681,11 +678,12 @@ where
     fn overlay<'b>(
         &'b mut self,
         tree: &'b mut Tree,
-        layout: Layout<'b>,
+        layout: Layout,
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: Vector,
-    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
+        window: Size,
+    ) -> Vec<overlay::Element<'b, Message, Theme, Renderer>> {
         overlay::from_children(
             &mut self.children,
             tree,
@@ -693,29 +691,31 @@ where
             renderer,
             viewport,
             translation,
+            window,
         )
     }
 
     fn operate(
         &mut self,
         tree: &mut Tree,
-        layout: Layout<'_>,
+        layout: Layout,
+        viewport: &Rectangle,
         renderer: &Renderer,
         operation: &mut dyn Operation,
     ) {
-        operation.container(None, layout.bounds());
+        operation.container(None, layout.bounds(), viewport);
         operation.traverse(&mut |operation| {
             self.children
                 .iter_mut()
-                .zip(&mut tree.children)
-                .zip(layout.children())
-                .for_each(|((child, state), layout)| {
+                .zip(layout.iter_mut(&mut tree.children))
+                .for_each(|(child, (layout, state))| {
                     child
                         .as_widget_mut()
-                        .operate(state, layout, renderer, operation);
+                        .operate(state, layout, viewport, renderer, operation);
                 });
         });
     }
+
 }
 
 impl<'a, Message, Theme, Renderer> From<Split<'a, Message, Theme, Renderer>>
